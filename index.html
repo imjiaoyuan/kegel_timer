@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>凯格尔运动计时器</title>
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --text-color: #1c1e21;
+            --primary-color: #007aff;
+            --secondary-color: #34c759;
+            --gray-color: #8e8e93;
+            --card-bg: #ffffff;
+            --input-bg: #e9e9eb;
+            --border-color: #c6c6c8;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #000000;
+                --text-color: #f2f2f7;
+                --primary-color: #0a84ff;
+                --secondary-color: #30d158;
+                --gray-color: #8d8d92;
+                --card-bg: #1c1c1e;
+                --input-bg: #2c2c2e;
+                --border-color: #444446;
+            }
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { height: 100%; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+        #app-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 5vh 20px 8vh 20px;
+        }
+        #settings-panel, #timer-panel {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            justify-content: space-between;
+        }
+        .hidden { display: none !important; }
+
+        /* Settings Panel */
+        #settings-panel { gap: 20px; }
+        .settings-title { font-size: 2em; font-weight: 700; margin-bottom: 10px; }
+        .input-group {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .input-row { display: flex; justify-content: space-between; align-items: center; }
+        .input-row label { font-size: 1.1em; }
+        .input-row input {
+            width: 80px;
+            padding: 10px;
+            font-size: 1.1em;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            text-align: center;
+        }
+
+        /* Timer Panel */
+        #circle-container { position: relative; width: 250px; height: 250px; margin: 0 auto; display: flex; justify-content: center; align-items: center; }
+        #circle { width: 100%; height: 100%; background-color: var(--card-bg); border-radius: 50%; display: flex; justify-content: center; align-items: center; flex-direction: column; transition: transform 0.8s cubic-bezier(0.25, 0.1, 0.25, 1), background-color 0.8s; will-change: transform; }
+        #circle.contract { transform: scale(1.1); background-color: var(--primary-color); }
+        #circle.relax { transform: scale(1.0); background-color: var(--secondary-color); }
+        #timer { font-size: 6em; font-weight: bold; line-height: 1; color: white; }
+        #status-text { font-size: 1.8em; font-weight: 500; margin-top: -10px; color: white; }
+        #circle.paused #status-text { font-size: 1.2em; }
+        #circle.paused #timer { font-size: 4em; }
+        
+        #progress-container { width: 100%; }
+        #count-display, #set-display { font-size: 1.5em; font-weight: 500; margin-bottom: 10px; }
+
+        /* Controls */
+        .controls { display: flex; width: 100%; justify-content: center; gap: 20px; }
+        .control-button {
+            width: 100%; max-width: 400px;
+            padding: 20px;
+            font-size: 1.8em;
+            font-weight: 600;
+            border-radius: 15px;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+        #start-button { background-color: var(--primary-color); }
+        #pause-button, #resume-button { background-color: #ff9500; }
+        #reset-button { background-color: var(--gray-color); }
+
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        
+        <div id="settings-panel">
+            <div>
+                <h1 class="settings-title">凯格尔训练设置</h1>
+                <div class="input-group">
+                    <div class="input-row">
+                        <label for="duration">动作时长 (秒)</label>
+                        <input type="number" id="duration" value="15">
+                    </div>
+                    <div class="input-row">
+                        <label for="reps">每组次数</label>
+                        <input type="number" id="reps" value="10">
+                    </div>
+                    <div class="input-row">
+                        <label for="sets">总组数</label>
+                        <input type="number" id="sets" value="3">
+                    </div>
+                     <div class="input-row">
+                        <label for="break">组间休息 (秒)</label>
+                        <input type="number" id="break" value="30">
+                    </div>
+                </div>
+            </div>
+            <div class="controls">
+                <button id="start-button" class="control-button">开始训练</button>
+            </div>
+        </div>
+
+        <div id="timer-panel" class="hidden">
+            <div id="progress-container">
+                <div id="set-display">第 1 / 3 组</div>
+                <div id="count-display">第 0 / 10 次</div>
+            </div>
+            <div id="circle-container">
+                <div id="circle">
+                    <div id="timer">15</div>
+                    <div id="status-text">准备</div>
+                </div>
+            </div>
+            <div class="controls">
+                <button id="pause-button" class="control-button">暂停</button>
+                <button id="resume-button" class="control-button hidden">继续</button>
+                <button id="reset-button" class="control-button">重置</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const settingsPanel = document.getElementById('settings-panel');
+        const timerPanel = document.getElementById('timer-panel');
+        const timerEl = document.getElementById('timer');
+        const statusTextEl = document.getElementById('status-text');
+        const countDisplayEl = document.getElementById('count-display');
+        const setDisplayEl = document.getElementById('set-display');
+        const circleEl = document.getElementById('circle');
+        const startBtn = document.getElementById('start-button');
+        const pauseBtn = document.getElementById('pause-button');
+        const resumeBtn = document.getElementById('resume-button');
+        const resetBtn = document.getElementById('reset-button');
+
+        const durationInput = document.getElementById('duration');
+        const repsInput = document.getElementById('reps');
+        const setsInput = document.getElementById('sets');
+        const breakInput = document.getElementById('break');
+
+        let state = {};
+        let intervalId;
+
+        function saveState() {
+            localStorage.setItem('kegelState', JSON.stringify(state));
+        }
+        
+        function loadState() {
+            const savedState = JSON.parse(localStorage.getItem('kegelState'));
+            if (savedState) state = savedState;
+        }
+
+        function resetState() {
+            clearInterval(intervalId);
+            state = {
+                duration: parseInt(durationInput.value),
+                reps: parseInt(repsInput.value),
+                sets: parseInt(setsInput.value),
+                break: parseInt(breakInput.value),
+                currentRep: 0,
+                currentSet: 1,
+                countdown: parseInt(durationInput.value),
+                phase: 'ready', // ready, contract, relax, break
+                isRunning: false,
+                isPaused: false
+            };
+            saveState();
+        }
+
+        function updateDisplay() {
+            timerEl.textContent = state.countdown;
+            countDisplayEl.textContent = `第 ${state.currentRep} / ${state.reps} 次`;
+            setDisplayEl.textContent = `第 ${state.currentSet} / ${state.sets} 组`;
+            
+            switch(state.phase) {
+                case 'contract': statusTextEl.textContent = "收缩"; circleEl.className = 'contract'; break;
+                case 'relax': statusTextEl.textContent = "放松"; circleEl.className = 'relax'; break;
+                case 'break': statusTextEl.textContent = "组间休息"; circleEl.className = ''; break;
+                case 'finished': statusTextEl.textContent = "训练完成"; timerEl.textContent = "🎉"; circleEl.className = ''; break;
+                default: statusTextEl.textContent = "准备"; circleEl.className = ''; break;
+            }
+             if (state.isPaused) {
+                statusTextEl.textContent = `已暂停 (${statusTextEl.textContent})`;
+                circleEl.classList.add('paused');
+            }
+        }
+
+        function tick() {
+            state.countdown--;
+            if (state.countdown < 0) {
+                clearInterval(intervalId);
+                runStateMachine();
+            }
+            saveState();
+            updateDisplay();
+        }
+
+        function runStateMachine() {
+            switch (state.phase) {
+                case 'ready':
+                    state.phase = 'contract';
+                    state.countdown = state.duration;
+                    break;
+                case 'contract':
+                    state.phase = 'relax';
+                    state.countdown = state.duration;
+                    state.currentRep++;
+                    break;
+                case 'relax':
+                    if (state.currentRep >= state.reps) {
+                        if (state.currentSet >= state.sets) {
+                            state.phase = 'finished';
+                        } else {
+                            state.phase = 'break';
+                            state.countdown = state.break;
+                        }
+                    } else {
+                        state.phase = 'contract';
+                        state.countdown = state.duration;
+                    }
+                    break;
+                case 'break':
+                    state.phase = 'contract';
+                    state.currentSet++;
+                    state.currentRep = 0;
+                    state.countdown = state.duration;
+                    break;
+            }
+            
+            if (state.phase !== 'finished') {
+                intervalId = setInterval(tick, 1000);
+            }
+            saveState();
+            updateDisplay();
+        }
+
+        function startWorkout() {
+            resetState();
+            state.isRunning = true;
+            settingsPanel.classList.add('hidden');
+            timerPanel.classList.remove('hidden');
+            runStateMachine();
+        }
+
+        function pauseWorkout() {
+            if (!state.isRunning || state.isPaused) return;
+            state.isPaused = true;
+            clearInterval(intervalId);
+            pauseBtn.classList.add('hidden');
+            resumeBtn.classList.remove('hidden');
+            saveState();
+            updateDisplay();
+        }
+
+        function resumeWorkout() {
+            if (!state.isRunning || !state.isPaused) return;
+            state.isPaused = false;
+            intervalId = setInterval(tick, 1000);
+            resumeBtn.classList.add('hidden');
+            pauseBtn.classList.remove('hidden');
+            circleEl.classList.remove('paused');
+            saveState();
+        }
+
+        function resetWorkout() {
+            resetState();
+            timerPanel.classList.add('hidden');
+            settingsPanel.classList.remove('hidden');
+            pauseBtn.classList.remove('hidden');
+            resumeBtn.classList.add('hidden');
+            localStorage.removeItem('kegelState');
+        }
+
+        startBtn.addEventListener('click', startWorkout);
+        pauseBtn.addEventListener('click', pauseWorkout);
+        resumeBtn.addEventListener('click', resumeWorkout);
+        resetBtn.addEventListener('click', resetWorkout);
+        
+        window.addEventListener('load', () => {
+            loadState();
+            if (state.isRunning) {
+                settingsPanel.classList.add('hidden');
+                timerPanel.classList.remove('hidden');
+                updateDisplay();
+                if (state.isPaused) {
+                    pauseBtn.classList.add('hidden');
+                    resumeBtn.classList.remove('hidden');
+                } else {
+                   intervalId = setInterval(tick, 1000);
+                }
+            } else {
+                resetWorkout();
+            }
+        });
+    </script>
+</body>
+</html>
